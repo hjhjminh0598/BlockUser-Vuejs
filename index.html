@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Title</title>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+          integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+            integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+            integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+            crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+            integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <style>
+        .login-form {
+            text-align: center;
+            align-self: auto;
+            margin-top: 100px;
+        }
+
+        .input-log {
+            height: 34px;
+            width: 290px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+<div id="app">
+    <div class="login-form" v-if="loginSuccessNotifi">
+        <h1>Login Successful!</h1>
+        <a href="index.html">
+            <button style="width: 300px;">Login Again</button>
+        </a>
+    </div>
+    <div v-else class="login-form">
+        <h5>Login</h5>
+        <form @submit.prevent="onSubmitLogin">
+            <input class="input-log" v-model="username" type="text" placeholder="Username" required/><br>
+            <input class="input-log" v-model="password" type="password" placeholder="Password"/><br>
+            <button class="input-log" type="submit">Login</button>
+        </form>
+        <p v-if="usernameWrongNotifi">Incorrect username!</p>
+        <p v-if="passwordWrongNotifi">Incorrect password!</p>
+        <p v-if="blockUserNotifi">Your user is block, please login after {{ durationBlockUser/1000 }} second!</p>
+    </div>
+</div>
+
+<script>
+    const app = new Vue({
+        el: '#app',
+        data: {
+            maxTimesWrongPwAllow: 9,
+            minTimeWrongPwAllow: 1 * 60 * 1000, // = 1 minute = 1*60*1000 milisecond
+
+            loginSuccessNotifi: false,
+            usernameWrongNotifi: false,
+            passwordWrongNotifi: false,
+            blockUserNotifi: false,
+
+            durationBlockUser: 5 * 1000, // = 5s
+
+            username: null,
+            password: null,
+            listUsers: [{
+                id: 1,
+                loginState: true,
+                username: "g",
+                password: "1",
+                listTimeLogin: []
+            },
+                {
+                    id: 2,
+                    loginState: true,
+                    username: "gg",
+                    password: "1",
+                    listTimeLogin: []
+                }]
+        },
+        methods: {
+            onSubmitLogin() {
+                const indexUser = this.checkUsernameAndReturnIndexIfExist(this.username);
+                if (indexUser !== -1) {
+                    this.usernameWrongNotifi = false
+                    this.handleLoginStateWhenCorrectUsername(this.listUsers[indexUser])
+                } else {
+                    this.notifiForUserWhenUserWrongUsername()
+                }
+                this.password = null
+            },
+
+            notifiForUserWhenUserWrongUsername() {
+                this.passwordWrongNotifi = false
+                this.blockUserNotifi = false
+                this.username = null
+                this.usernameWrongNotifi = true
+            },
+
+            handleLoginStateWhenCorrectUsername(user) {
+                if (user.loginState) {
+                    this.blockUserNotifi = false
+                    this.checkLoginWhenLoginStateAllow(user)
+                } else {
+                    this.passwordWrongNotifi = false;
+                    this.blockUserNotifi = true
+                }
+            },
+
+            checkLoginWhenLoginStateAllow(user) {
+                if (this.checkLoginSuccess(this.username, this.password)) {
+                    user.listTimeLogin = []
+                    this.loginSuccessNotifi = true
+                } else {
+                    this.handleloginStateWhenUserWrongPassword(user)
+                    this.passwordWrongNotifi = true
+                }
+            },
+
+            handleloginStateWhenUserWrongPassword(user) {
+                this.pushTimeLoginWrongPassword(user.listTimeLogin)
+                if (user.listTimeLogin.length === this.maxTimesWrongPwAllow + 1) {
+                    if (this.checkAllowLoginContinueAfterWrongPw(user.listTimeLogin)) {
+                        user.listTimeLogin.shift()
+                    } else {
+                        user.loginState = false
+                        user.listTimeLogin = []
+                        this.setTimeoutUnblockUser(user)
+                    }
+                }
+            },
+
+            setTimeoutUnblockUser(user) {
+                setTimeout(function () {
+                    user.loginState = true
+                }, this.durationBlockUser)
+            },
+
+            pushTimeLoginWrongPassword(listTimeLogin) {
+                listTimeLogin.push(this.getTimeLogin())
+            },
+
+            getTimeLogin() {
+                return new Date()
+            },
+
+            checkAllowLoginContinueAfterWrongPw(listTimeLogin) {
+                const firstTimeLogin = listTimeLogin[0]
+                const lastTimeLogin = listTimeLogin[listTimeLogin.length - 1]
+                return this.timeBetweenTwoTimesLogin(firstTimeLogin, lastTimeLogin) > this.minTimeWrongPwAllow
+            },
+
+            timeBetweenTwoTimesLogin(firstTimeLogin, secondTimeLogin) {
+                return secondTimeLogin - firstTimeLogin
+            },
+
+            checkLoginSuccess(username, password) {
+                const index = this.checkUsernameAndReturnIndexIfExist(username)
+                return index !== -1 ? password === this.listUsers[index].password : false;
+            },
+
+            checkUsernameAndReturnIndexIfExist(username) {
+                const listUsersClone = this.listUsers;
+                const lengthListUsers = listUsersClone.length;
+                for (let i = 0; i < lengthListUsers; i++) {
+                    if (listUsersClone[i].username === username)
+                        return i;
+                }
+                return -1;
+            }
+        }
+    })
+</script>
+</body>
+
+</html>
